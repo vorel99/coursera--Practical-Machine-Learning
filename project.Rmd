@@ -1,0 +1,88 @@
+---
+title: "Project"
+author: "Jan Cap"
+date: "2022-09-05"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, results=FALSE, error=FALSE}
+library(ggplot2)
+library(ggcorrplot)
+library(caret)
+
+```
+## Training
+
+First, we will load data and do some research about columns. 
+
+```{r}
+
+train <- read.csv('project-training.csv')
+
+na_count <-sapply(train, function(y) sum(length(which(is.na(y)))))
+data.frame(na_count)
+```
+
+We can see, that all columns with NA values have many NA. We will drop those columns and column with date. From original 160 columns, we have now 92 columns.
+
+```{r}
+train_cleared <- train[ , colSums(is.na(train)) == 0]
+train_cleared <- subset(train_cleared,  select = -cvtd_timestamp)
+
+#sapply(lapply(train_cleared, unique), length)
+```
+
+
+
+
+```{r, echo=FALSE, results=FALSE}
+unique(train_cleared$cvtd_timestamp)
+
+names(train_cleared)
+```
+Lets see, how predicted value looks like.
+We can see, that columns starts with "kurtosis" and "skewness" are mostly empty strings. We are gonna use just columns with x, y, z postfix, "user_name" and predicated column "classe".
+```{r}
+filter <- grepl( "x$|y$|z$|user_name|classe" , names( train_cleared ) )
+
+train_num <- train_cleared[, filter]
+```
+
+
+It's classification problem with 5 classes. I'm gonna use knn with k=5.
+```{r}
+set.seed(125)
+ctrl <- trainControl(method = 'cv', number = 5, savePredictions = TRUE)
+model <- train(factor(classe) ~ . , data=train_num, method = "knn", trControl = ctrl, tuneGrid = data.frame(k=5))
+
+model
+
+```
+
+## Predict 20 records
+
+Here is my prediction for 20 records from test data.
+```{r pressure}
+test <- read.csv('project-testing.csv')
+test <- test[names(train_num)[-38]]
+
+predict(model, test)
+```
+
+```{r, echo=FALSE}
+# I tried tree, with default tuning parameters and output was really bad.
+#tree:
+#A A A A A D D D A A A D D A D A A D A A
+#knn - k=15:
+#B A B A A E D B A A C C A A D A A B B B
+#knn - k=5
+#B A B A A E D B A A B C B A E E A B B B
+
+#correct:
+#B A B A A E D B A A - C - A - - A B B B
+```
+
